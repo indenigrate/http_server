@@ -14,9 +14,6 @@ var _ = os.Exit
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
-
-	// TODO: Uncomment the code below to pass the first stage
-	//
 	// Listen at 4221
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 
@@ -57,11 +54,23 @@ func handleConnection(conn net.Conn, targetURL string) {
 	reqLineParts := strings.Split(reqParts[0], " ")
 	// method := reqLineParts[0]
 
-	target := reqLineParts[1]
-	if target == targetURL {
+	targets := strings.Split(reqLineParts[1], "/")
+
+	if targets[1] == "" {
+		// handle /
+		fmt.Println("serving /")
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	} else if targets[1] == "echo" {
+		fmt.Println("serving /echo/{str}")
+		// handle /echo/{str}
+		conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(targets[2]), targets[2])))
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
-	return
+
+	// if target == targetURL {
+	// 	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	// } else {
+	// 	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+	// }
 }
