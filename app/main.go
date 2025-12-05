@@ -15,26 +15,46 @@ func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
 	// Listen at 4221
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
+	listenTCP("0.0.0.0:4221")
+	// l, err := net.Listen("tcp", "0.0.0.0:4221")
 
-	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
-		os.Exit(1)
-	}
+	// if err != nil {
+	// 	fmt.Println("Failed to bind to port 4221")
+	// 	os.Exit(1)
+	// }
 	fmt.Println("Port 4221 Binded ")
 
+	// handle multiple connections
+
 	// Accept connection
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-	fmt.Println("Connection Accepted from ", conn.RemoteAddr())
+	// conn, err := l.Accept()
+	// if err != nil {
+	// 	fmt.Println("Error accepting connection: ", err.Error())
+	// 	os.Exit(1)
+	// }
+	// fmt.Println("Connection Accepted from ", conn.RemoteAddr())
 
 	// Respond with a simple HTTP response
-	handleConnection(conn, "/")
+	// go handleConnection(conn, "/")
 	// conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
+}
+
+func listenTCP(address string) (net.Listener, error) {
+	netListener, err := net.Listen("tcp", address)
+	defer netListener.Close()
+	if err != nil {
+		return nil, err
+	}
+	for true {
+		conn, err := netListener.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+		go handleConnection(conn, "/")
+	}
+	return netListener, nil
 }
 
 // handle connection function
