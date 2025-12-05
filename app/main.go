@@ -51,6 +51,9 @@ func handleConnection(conn net.Conn, targetURL string) {
 	req := string(b)
 	reqParts := strings.Split(req, "\r\n")
 	// reqParts[0] is the request line
+	// reqParts[1] is the first header line
+	// reqParts[2] is the second header line
+
 	reqLineParts := strings.Split(reqParts[0], " ")
 	// method := reqLineParts[0]
 
@@ -64,6 +67,19 @@ func handleConnection(conn net.Conn, targetURL string) {
 		fmt.Println("serving /echo/{str}")
 		// handle /echo/{str}
 		conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(targets[2]), targets[2])))
+	} else if targets[1] == "user-agent" {
+		fmt.Println("serving /user-agent")
+		// handle /user-agent
+		// respond with the User-Agent header value
+		// loop req parts to find User-Agent header
+		for _, headerLine := range reqParts {
+			if strings.HasPrefix(headerLine, "User-Agent:") {
+				// ua is the user agent value
+				ua := strings.TrimSpace(strings.TrimPrefix(headerLine, "User-Agent:"))
+				conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(ua), ua)))
+				return
+			}
+		}
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
