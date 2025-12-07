@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -71,13 +72,11 @@ func handleConnection(conn net.Conn, dir string) {
 		fmt.Println("serving /echo/{str}")
 		for _, headerLine := range reqParts {
 			if strings.HasPrefix(headerLine, "Accept-Encoding:") {
-				// ua is the user agent value
-				encodingsAccepted := strings.Split(strings.TrimSpace(strings.TrimPrefix(headerLine, "User-Agent:")), ", ")
-				for _, encoding := range encodingsAccepted {
-					if encoding == "gzip" {
-						conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: gzip\r\n\r\n%s", len(targets[2]), targets[2])))
-						return
-					}
+				encodingsAccepted := strings.Split(strings.TrimSpace(strings.TrimPrefix(headerLine, "Accept-Encoding:")), ", ")
+				fmt.Printf(encodingsAccepted[0])
+				if slices.Contains(encodingsAccepted, "gzip") {
+					conn.Write(fmt.Appendf(nil, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: gzip\r\n\r\n%s", len(targets[2]), targets[2]))
+					return
 				}
 			}
 		}
