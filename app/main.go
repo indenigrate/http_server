@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -14,33 +15,15 @@ var _ = os.Exit
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
+	// Adding Directory Flag
+	dir := getFlagString()
 	// Listen at 4221
-	listenTCP("0.0.0.0:4221")
-	// l, err := net.Listen("tcp", "0.0.0.0:4221")
-
-	// if err != nil {
-	// 	fmt.Println("Failed to bind to port 4221")
-	// 	os.Exit(1)
-	// }
+	listenTCP("0.0.0.0:4221", dir)
 	fmt.Println("Port 4221 Binded ")
-
-	// handle multiple connections
-
-	// Accept connection
-	// conn, err := l.Accept()
-	// if err != nil {
-	// 	fmt.Println("Error accepting connection: ", err.Error())
-	// 	os.Exit(1)
-	// }
-	// fmt.Println("Connection Accepted from ", conn.RemoteAddr())
-
-	// Respond with a simple HTTP response
-	// go handleConnection(conn, "/")
-	// conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
 }
 
-func listenTCP(address string) (net.Listener, error) {
+func listenTCP(address string, dir string) (net.Listener, error) {
 	netListener, err := net.Listen("tcp", address)
 	defer netListener.Close()
 	if err != nil {
@@ -52,13 +35,13 @@ func listenTCP(address string) (net.Listener, error) {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(conn, "/")
+		go handleConnection(conn, dir)
 	}
 	return netListener, nil
 }
 
 // handle connection function
-func handleConnection(conn net.Conn, targetURL string) {
+func handleConnection(conn net.Conn, dir string) {
 	defer conn.Close()
 	b := make([]byte, 1024)
 
@@ -100,6 +83,18 @@ func handleConnection(conn net.Conn, targetURL string) {
 				return
 			}
 		}
+	} else if targets[1] == "files" {
+		fmt.Println("serving /files/{filename}")
+		// handle /echo/{filename}
+
+		file, err := os.ReadFile(dir + "/" + targets[2])
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			return
+		}
+		content := string(file)
+		conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(content), content)))
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
@@ -109,4 +104,11 @@ func handleConnection(conn net.Conn, targetURL string) {
 	// } else {
 	// 	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	// }
+}
+
+// String CLI Input
+func getFlagString() string {
+	dirAddr := flag.String("directory", "./", "Directory to serve files from")
+	flag.Parse()
+	return *dirAddr
 }
