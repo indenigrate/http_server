@@ -112,7 +112,7 @@ func handleConnection(conn net.Conn, dir string) {
 				return
 			}
 			defer file.Close()
-			_, err = file.WriteString(reqBody)
+			_, err = file.WriteString(strings.TrimRight(reqBody, "\x00"))
 			if err != nil {
 				fmt.Println("Error writing to file:", err)
 				conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
