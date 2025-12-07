@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"flag"
 	"fmt"
 	"log"
@@ -73,9 +75,13 @@ func handleConnection(conn net.Conn, dir string) {
 		for _, headerLine := range reqParts {
 			if strings.HasPrefix(headerLine, "Accept-Encoding:") {
 				encodingsAccepted := strings.Split(strings.TrimSpace(strings.TrimPrefix(headerLine, "Accept-Encoding:")), ", ")
-				fmt.Printf(encodingsAccepted[0])
 				if slices.Contains(encodingsAccepted, "gzip") {
-					conn.Write(fmt.Appendf(nil, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: gzip\r\n\r\n%s", len(targets[2]), targets[2]))
+					commpressedString, err := compressString(targets[2])
+					if err != nil {
+						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+						return
+					}
+					conn.Write(fmt.Appendf(nil, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: gzip\r\n\r\n%s", len(commpressedString), commpressedString))
 					return
 				}
 			}
@@ -142,4 +148,16 @@ func getFlagString() string {
 	dirAddr := flag.String("directory", "./", "Directory to serve files from")
 	flag.Parse()
 	return *dirAddr
+}
+
+func compressString(input string) (string, error) {
+	var b bytes.Buffer
+	gzWriter := gzip.NewWriter(&b)
+	_, err := gzWriter.Write(fmt.Append(nil, input))
+	gzWriter.Close()
+	if err != nil {
+		fmt.Println("Error compressing data:", err)
+		return "", err
+	}
+	return b.String(), nil
 }
