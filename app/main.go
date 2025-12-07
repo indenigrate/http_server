@@ -69,6 +69,18 @@ func handleConnection(conn net.Conn, dir string) {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	} else if targets[1] == "echo" {
 		fmt.Println("serving /echo/{str}")
+		for _, headerLine := range reqParts {
+			if strings.HasPrefix(headerLine, "Accept-Encoding:") {
+				// ua is the user agent value
+				encodingsAccepted := strings.Split(strings.TrimSpace(strings.TrimPrefix(headerLine, "User-Agent:")), ", ")
+				for _, encoding := range encodingsAccepted {
+					if encoding == "gzip" {
+						conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: gzip\r\n\r\n%s", len(targets[2]), targets[2])))
+						return
+					}
+				}
+			}
+		}
 		// handle /echo/{str}
 		conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(targets[2]), targets[2])))
 	} else if targets[1] == "user-agent" {
@@ -124,11 +136,6 @@ func handleConnection(conn net.Conn, dir string) {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
 
-	// if target == targetURL {
-	// 	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-	// } else {
-	// 	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-	// }
 }
 
 // String CLI Input
