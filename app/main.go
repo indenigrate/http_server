@@ -141,6 +141,9 @@ func handleConnection(conn net.Conn, dir string) {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 		handleConnection(conn, dir)
 	}
+	if slices.Contains(reqParts, "Connection: close") {
+		return
+	}
 	handleConnection(conn, dir)
 }
 
