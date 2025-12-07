@@ -98,7 +98,7 @@ func handleConnection(conn net.Conn, dir string) {
 				// ua is the user agent value
 				ua := strings.TrimSpace(strings.TrimPrefix(headerLine, "User-Agent:"))
 				conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(ua), ua)))
-				return
+
 			}
 		}
 	} else if targets[1] == "files" {
@@ -112,7 +112,7 @@ func handleConnection(conn net.Conn, dir string) {
 			if err != nil {
 				fmt.Println("Error opening file:", err)
 				conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-				return
+
 			}
 			content := string(file)
 			conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(content), content)))
@@ -126,19 +126,20 @@ func handleConnection(conn net.Conn, dir string) {
 			if err != nil {
 				fmt.Println("Error creating file:", err)
 				conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
-				return
+
 			}
 			defer file.Close()
 			_, err = file.WriteString(strings.TrimRight(reqBody, "\x00"))
 			if err != nil {
 				fmt.Println("Error writing to file:", err)
 				conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
-				return
+
 			}
 			conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 		}
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		handleConnection(conn, dir)
 	}
 	handleConnection(conn, dir)
 }
