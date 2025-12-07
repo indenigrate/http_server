@@ -140,7 +140,7 @@ func handleConnection(conn net.Conn, dir string) {
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
-
+	handleConnection(conn, dir)
 }
 
 // String CLI Input
