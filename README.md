@@ -1,37 +1,42 @@
-[![progress-banner](https://backend.codecrafters.io/progress/http-server/fa2f87f0-869e-4705-96e6-7279f7da3c3b)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Go HTTP/1.1 Server
 
-This is a starting point for Go solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
+A lightweight, concurrent HTTP/1.1 server implementation written in Go. This project interacts directly with the TCP layer, handling raw byte streams to parse HTTP requests and generate compliant responses without relying on high-level `net/http` handler abstractions. It is designed to serve static files, echo request data, and handle concurrent client connections via Go routines.
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
+## Capabilities
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+The server listens on port `4221` and implements the following endpoints and behaviors:
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+- **`/`**: Returns a standard 200 OK status.
+- **`/echo/{string}`**: Returns the path parameter as the response body.
+  - Supports [Gzip compression](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding) if the `Accept-Encoding: gzip` header is present.
+- **`/user-agent`**: Reads and returns the value of the `User-Agent` header from the client request.
+- **`/files/{filename}`**:
+  - `GET`: Reads the specified file from the server's configured directory and returns it with `application/octet-stream`.
+  - `POST`: Creates a new file (or overwrites an existing one) with the request body data.
+- **Persistent Connections**: Supports [HTTP Keep-Alive](https://developer.mozilla.org/en-US/docs/Web/HTTP/Connection_management_in_HTTP_1.x) by processing multiple requests on a single connection loop until a `Connection: close` header is detected.
 
-# Passing the first stage
+## Implementation Techniques
 
-The entry point for your HTTP server implementation is in `app/main.go`. Study
-and uncomment the relevant code, and push your changes to pass the first stage:
+The codebase demonstrates several low-level networking and system programming techniques:
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
-```
+- **Raw TCP Socket Management**: Utilizes the Go `net` package to listen on TCP sockets and accept incoming connections, bypassing the standard HTTP multiplexer.
+- **Manual Protocol Parsing**: Implements a custom parser using `bufio` to read the [HTTP Request Line](https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages#request_line) and [Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers) directly from the wire. This includes handling CRLF delimiters and parsing `Content-Length` to delimit body payloads.
+- **Concurrency**: Spawns lightweight [Go routines](https://go.dev/tour/concurrency/1) for every incoming connection, ensuring the main listener remains unblocked.
+- **Compression Negotiation**: Manually checks `Accept-Encoding` headers and utilizes a `gzip.Writer` buffer to compress response bodies when requested by the client.
+- **CLI Flag Parsing**: Uses the `flag` package to accept directory configurations at runtime (e.g., `--directory /tmp`).
 
-Time to move on to the next stage!
+## Technologies and Libraries
 
-# Stage 2 & beyond
+This project relies on the Go standard library:
 
-Note: This section is for stages 2 and beyond.
+- [net](https://pkg.go.dev/net): Provides the portable interface for network I/O, including TCP/IP listeners.
+- [bufio](https://pkg.go.dev/bufio): Implements buffered I/O, essential for reading variable-length HTTP lines efficiently.
+- [compress/gzip](https://pkg.go.dev/compress/gzip): Implements reading and writing of gzip format compressed files.
+- [os](https://pkg.go.dev/os): Provides a platform-independent interface to operating system functionality, used here for file reading/writing.
+- [bytes](https://pkg.go.dev/bytes): Implements functions for the manipulation of byte slices, used for buffer management during compression.
 
-1. Ensure you have `go (1.25)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `app/main.go`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+## Project Structure
+
+```text
+.
+└── app/
