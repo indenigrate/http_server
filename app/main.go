@@ -118,83 +118,112 @@ func handleConnection(conn net.Conn, dir string) {
 
 		targets := strings.Split(reqLineParts[1], "/")
 
+		var responseString string
+
 		if targets[1] == "" {
-			// handle /
 			fmt.Println("serving /")
-			// conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-			conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"))
+			responseString = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
+
 		} else if targets[1] == "echo" {
 			fmt.Println("serving /echo/{str}")
+
+			gzipHandled := false // Flag to prevent double-writing
+
 			for _, headerLine := range reqParts {
 				if strings.HasPrefix(headerLine, "Accept-Encoding:") {
 					encodingsAccepted := strings.Split(strings.TrimSpace(strings.TrimPrefix(headerLine, "Accept-Encoding:")), ", ")
+
 					if slices.Contains(encodingsAccepted, "gzip") {
 						commpressedString, err := compressString(targets[2])
 						if err != nil {
-							conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
-							return
+							responseString = "HTTP/1.1 500 Internal Server Error\r\n\r\n"
+							gzipHandled = true
+							break
 						}
-						conn.Write(fmt.Appendf(nil, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: gzip\r\n\r\n%s", len(commpressedString), commpressedString))
-						return
+						// fmt.Appendf returns bytes, so we cast to string
+						responseString = string(fmt.Appendf(nil, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nContent-Encoding: gzip\r\n\r\n%s", len(commpressedString), commpressedString))
+						gzipHandled = true
+						break
 					}
 				}
 			}
-			// handle /echo/{str}
-			conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(targets[2]), targets[2])))
+
+			// Only generate the standard response if gzip wasn't handled
+			if !gzipHandled {
+				responseString = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(targets[2]), targets[2])
+			}
+
 		} else if targets[1] == "user-agent" {
 			fmt.Println("serving /user-agent")
-			// handle /user-agent
-			// respond with the User-Agent header value
-			// loop req parts to find User-Agent header
 			for _, headerLine := range reqParts {
 				if strings.HasPrefix(headerLine, "User-Agent:") {
-					// ua is the user agent value
 					ua := strings.TrimSpace(strings.TrimPrefix(headerLine, "User-Agent:"))
-					conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(ua), ua)))
-
+					responseString = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(ua), ua)
 				}
 			}
+
 		} else if targets[1] == "files" {
 			fmt.Println("serving /files/{filename}")
-			// handle /files/{filename}
 			filename := targets[2]
 			fileAddr := dir + "/" + filename
-			// handle GET
+
 			if reqLineParts[0] == "GET" {
 				file, err := os.ReadFile(fileAddr)
 				if err != nil {
 					fmt.Println("Error opening file:", err)
-					conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-
+					responseString = "HTTP/1.1 404 Not Found\r\n\r\n"
+				} else {
+					content := string(file)
+					responseString = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(content), content)
 				}
-				content := string(file)
-				conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(content), content)))
+
 			} else if reqLineParts[0] == "POST" {
-				// handle POST
-				err := os.MkdirAll(dir, 0755) // 0755 grants read/write/execute for owner, read/execute for group/others
+				err := os.MkdirAll(dir, 0755)
 				if err != nil {
+					// Fatal log exits the program, which is fine,
+					// but usually you want to handle it gracefully in a server
 					log.Fatalf("Failed to create directory: %v", err)
 				}
+
 				file, err := os.Create(fileAddr)
 				if err != nil {
 					fmt.Println("Error creating file:", err)
-					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+					responseString = "HTTP/1.1 500 Internal Server Error\r\n\r\n"
+				} else {
+					// We must close the file before we finish
+					// (defer works, but explicit close is safer if we want to check errors immediately)
+					_, err = file.WriteString(strings.TrimRight(reqBody, "\x00"))
+					file.Close() // Close immediately after writing
 
+					if err != nil {
+						fmt.Println("Error writing to file:", err)
+						responseString = "HTTP/1.1 500 Internal Server Error\r\n\r\n"
+					} else {
+						responseString = "HTTP/1.1 201 Created\r\n\r\n"
+					}
 				}
-				defer file.Close()
-				_, err = file.WriteString(strings.TrimRight(reqBody, "\x00"))
-				if err != nil {
-					fmt.Println("Error writing to file:", err)
-					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
-
-				}
-				conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 			}
+
 		} else {
-			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			responseString = "HTTP/1.1 404 Not Found\r\n\r\n"
 		}
 
+		// 2. Final Write Call
+		conn.Write([]byte(responseString))
+
+		shouldClose := false
 		if slices.Contains(reqParts, "Connection: close") {
+			shouldClose = true
+		}
+		if shouldClose {
+			// We need to insert "Connection: close" before the body starts (\r\n\r\n)
+			// A simple way is to replace the first occurrence of the end-of-headers marker
+			if strings.Contains(responseString, "\r\n\r\n") {
+				responseString = strings.Replace(responseString, "\r\n\r\n", "\r\nConnection: close\r\n\r\n", 1)
+			}
+		}
+		conn.Write([]byte(responseString))
+		if shouldClose {
 			return
 		}
 	}
