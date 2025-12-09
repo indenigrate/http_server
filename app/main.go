@@ -107,7 +107,6 @@ func handleConnection(conn net.Conn, dir string) {
 		// --- STEP C: Create 'req' variable ---
 		// Now 'req' contains the full headers + \r\n + body
 		req := requestBuilder.String()
-		fmt.Print(req)
 		reqParts := strings.Split(req, "\r\n")
 		// reqParts[0] is the request line
 		// reqParts[1] is the first header line
@@ -158,6 +157,7 @@ func handleConnection(conn net.Conn, dir string) {
 			for _, headerLine := range reqParts {
 				if strings.HasPrefix(headerLine, "User-Agent:") {
 					ua := strings.TrimSpace(strings.TrimPrefix(headerLine, "User-Agent:"))
+					fmt.Println(ua)
 					responseString = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(ua), ua)
 				}
 			}
@@ -209,7 +209,6 @@ func handleConnection(conn net.Conn, dir string) {
 		}
 
 		// 2. Final Write Call
-		conn.Write([]byte(responseString))
 
 		shouldClose := false
 		if slices.Contains(reqParts, "Connection: close") {
