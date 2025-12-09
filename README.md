@@ -40,3 +40,4 @@ This project relies on the Go standard library:
 ```text
 .
 └── app/
+```
